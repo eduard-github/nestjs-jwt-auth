@@ -9,40 +9,6 @@ import { JwtService } from '@nestjs/jwt';
 export class AuthService {
   constructor(private prisma: PrismaService, private jwtService: JwtService) {}
 
-  hashData(data: string) {
-    return bcrypt.hash(data, 10);
-  }
-
-  async getTokens(userId: number, email: string): Promise<Tokens> {
-    const [at, rt] = await Promise.all([
-      this.jwtService.signAsync(
-        {
-          sub: userId,
-          email,
-        },
-        {
-          secret: 'at-secret',
-          expiresIn: 60 * 15,
-        },
-      ),
-
-      this.jwtService.signAsync(
-        {
-          sub: userId,
-          email,
-        },
-        {
-          secret: 'rt-secret',
-          expiresIn: 60 * 60 * 24 * 7,
-        },
-      ),
-    ]);
-    return {
-      access_token: at,
-      refresh_token: rt,
-    };
-  }
-
   async signupLocal(dto: AuthDto): Promise<Tokens> {
     const hash = await this.hashData(dto.password);
 
@@ -53,11 +19,23 @@ export class AuthService {
       },
     });
 
-    console.log('USER', newUser);
-
     const tokens = await this.getTokens(newUser.id, newUser.email);
+    await this.updateRtHash(newUser.id, tokens.refresh_token);
 
     return tokens;
+  }
+
+  async updateRtHash(userId: number, rt: string) {
+    const hash = await this.hashData(rt);
+
+    await this.prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        hashedRt: hash,
+      },
+    });
   }
 
   signinLocal() {}
@@ -65,4 +43,39 @@ export class AuthService {
   logout() {}
 
   refreshTokens() {}
+
+  hashData(data: string) {
+    return bcrypt.hash(data, 10);
+  }
+
+  async getTokens(userId: number, userEmail: string): Promise<Tokens> {
+    const [at, rt] = await Promise.all([
+      this.jwtService.signAsync(
+        {
+          sub: userId,
+          email: userEmail,
+        },
+        {
+          secret: 'at-secret',
+          expiresIn: 60 * 15,
+        },
+      ),
+
+      this.jwtService.signAsync(
+        {
+          sub: userId,
+          email: userEmail,
+        },
+        {
+          secret: 'rt-secret',
+          expiresIn: 60 * 60 * 24 * 7,
+        },
+      ),
+    ]);
+
+    return {
+      access_token: at,
+      refresh_token: rt,
+    };
+  }
 }
