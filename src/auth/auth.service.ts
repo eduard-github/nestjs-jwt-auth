@@ -25,19 +25,6 @@ export class AuthService {
     return tokens;
   }
 
-  async updateRtHash(userId: number, rt: string) {
-    const hash = await this.hashData(rt);
-
-    await this.prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        hashedRt: hash,
-      },
-    });
-  }
-
   async signinLocal(dto: AuthDto): Promise<Tokens> {
     const user = await this.prisma.user.findUnique({
       where: {
@@ -60,6 +47,20 @@ export class AuthService {
   logout() {}
 
   refreshTokens() {}
+
+
+  async updateRtHash(userId: number, rt: string) {
+    const hash = await this.hashData(rt);
+
+    await this.prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        hashedRt: hash,
+      },
+    });
+  }
 
   hashData(data: string) {
     return bcrypt.hash(data, 10);
